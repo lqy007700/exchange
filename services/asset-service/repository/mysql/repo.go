@@ -1,21 +1,13 @@
 package mysql
 
 import (
-	"exchange/services/asset-service/config"
+	"asset-service/asset-service/config"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"go-micro.dev/v4/logger"
 	"time"
 )
 
-type Repository struct {
-	DB *gorm.DB
-}
-
-func New(conf *config.Config) *Repository {
-	repo := &Repository{DB: newDB(conf)}
-	return repo
-}
 func newDB(conf *config.Config) *gorm.DB {
 	db, err := gorm.Open("mysql", conf.SqlMap["community"].DSN)
 	if err != nil || db == nil {
@@ -50,7 +42,4 @@ func updateTimeStampForCreateCallback(scope *gorm.Scope) {
 			}
 		}
 	}
-}
-func (r *Repository) Close() {
-	_ = r.DB.Close()
 }

@@ -18,7 +18,7 @@ service AssetService {
 
 message Asset{
   // 资产类型
-  string type = 1;
+  string coin = 1;
   // 可用
   string available = 2;
   // 冻结
@@ -27,7 +27,7 @@ message Asset{
 
 message GetAssetReq {
   int64 uid = 1;
-  int32 asset_id = 2;
+  string coin = 2;
 }
 
 message GetAssetsReq {
@@ -40,7 +40,7 @@ message GetAssetsResp{
 
 message FreezeReq {
   int64 uid = 1;
-  int32 asset_id = 2;
+  int32 coin = 2;
   string amount = 3;
 }
 
