@@ -41,7 +41,7 @@ type AssetService interface {
 	// 获取用户所有资产
 	GetAssets(ctx context.Context, in *GetAssetsReq, opts ...client.CallOption) (*GetAssetsResp, error)
 	// 冻结&解冻
-	TryFreeze(ctx context.Context, in *FreezeReq, opts ...client.CallOption) (*CommonResp, error)
+	Freeze(ctx context.Context, in *FreezeReq, opts ...client.CallOption) (*CommonResp, error)
 	UnFreeze(ctx context.Context, in *FreezeReq, opts ...client.CallOption) (*CommonResp, error)
 }
 
@@ -77,8 +77,8 @@ func (c *assetService) GetAssets(ctx context.Context, in *GetAssetsReq, opts ...
 	return out, nil
 }
 
-func (c *assetService) TryFreeze(ctx context.Context, in *FreezeReq, opts ...client.CallOption) (*CommonResp, error) {
-	req := c.c.NewRequest(c.name, "AssetService.TryFreeze", in)
+func (c *assetService) Freeze(ctx context.Context, in *FreezeReq, opts ...client.CallOption) (*CommonResp, error) {
+	req := c.c.NewRequest(c.name, "AssetService.Freeze", in)
 	out := new(CommonResp)
 	err := c.c.Call(ctx, req, out, opts...)
 	if err != nil {
@@ -105,7 +105,7 @@ type AssetServiceHandler interface {
 	// 获取用户所有资产
 	GetAssets(context.Context, *GetAssetsReq, *GetAssetsResp) error
 	// 冻结&解冻
-	TryFreeze(context.Context, *FreezeReq, *CommonResp) error
+	Freeze(context.Context, *FreezeReq, *CommonResp) error
 	UnFreeze(context.Context, *FreezeReq, *CommonResp) error
 }
 
@@ -113,7 +113,7 @@ func RegisterAssetServiceHandler(s server.Server, hdlr AssetServiceHandler, opts
 	type assetService interface {
 		GetAsset(ctx context.Context, in *GetAssetReq, out *Asset) error
 		GetAssets(ctx context.Context, in *GetAssetsReq, out *GetAssetsResp) error
-		TryFreeze(ctx context.Context, in *FreezeReq, out *CommonResp) error
+		Freeze(ctx context.Context, in *FreezeReq, out *CommonResp) error
 		UnFreeze(ctx context.Context, in *FreezeReq, out *CommonResp) error
 	}
 	type AssetService struct {
@@ -135,8 +135,8 @@ func (h *assetServiceHandler) GetAssets(ctx context.Context, in *GetAssetsReq, o
 	return h.AssetServiceHandler.GetAssets(ctx, in, out)
 }
 
-func (h *assetServiceHandler) TryFreeze(ctx context.Context, in *FreezeReq, out *CommonResp) error {
-	return h.AssetServiceHandler.TryFreeze(ctx, in, out)
+func (h *assetServiceHandler) Freeze(ctx context.Context, in *FreezeReq, out *CommonResp) error {
+	return h.AssetServiceHandler.Freeze(ctx, in, out)
 }
 
 func (h *assetServiceHandler) UnFreeze(ctx context.Context, in *FreezeReq, out *CommonResp) error {

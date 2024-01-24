@@ -12,7 +12,7 @@ service AssetService {
   rpc GetAssets(GetAssetsReq) returns (GetAssetsResp) {}
 
   // 冻结&解冻
-  rpc TryFreeze(FreezeReq) returns (CommonResp) {}
+  rpc Freeze(FreezeReq) returns (CommonResp) {}
   rpc UnFreeze(FreezeReq) returns (CommonResp) {}
 }
 

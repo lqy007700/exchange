@@ -43,7 +43,7 @@ func (a *AssetService) GetAssets(ctx context.Context, req *asset_service.GetAsse
 	return &asset_service.GetAssetsResp{Assets: resp}, nil
 }
 
-func (a *AssetService) TryFreeze(ctx context.Context, in *asset_service.FreezeReq, opts ...client.CallOption) (*asset_service.CommonResp, error) {
+func (a *AssetService) Freeze(ctx context.Context, in *asset_service.FreezeReq, opts ...client.CallOption) (*asset_service.CommonResp, error) {
 	//TODO implement me
 	panic("implement me")
 }

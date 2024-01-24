@@ -106,3 +106,11 @@ func (c *AssetCache) GetUserAssets(uid int64) ([]*model.Asset, error) {
 	}
 	return assets, nil
 }
+
+func (c *AssetCache) CleanUserAsset(uid int64, coin string) {
+	key := fmt.Sprintf(UserAssetHashKey, uid)
+	err := c.client.HDel(key, coin).Err()
+	if err != nil {
+		logger.Errorf("uid: %d, coin: %s, cleanUserAsset error: %v", uid, coin, err)
+	}
+}

@@ -6,18 +6,17 @@ import (
 	"asset-service/asset-service/repository/redis"
 	"github.com/golang/groupcache/singleflight"
 	"go-micro.dev/v4/logger"
+	"math/big"
 )
 
 /**
 用户资产操作
 - 资产查询
-	- 查询用户所有资产
-	- 查询用户指定币种资产
 - 资产转入
 - 资产转出
 - 资产冻结
 - 资产解冻
-
+- 资产转账
 
 资产信息存储在DB 和 redis中，key为用户id，value为用户资产信息
 对用户资产的操作需要读写锁
@@ -101,4 +100,59 @@ func (u *AssetService) GetUserAssets(uid int64) ([]*model.Asset, error) {
 	}
 
 	return assets, nil
+}
+
+// Freeze 冻结资产
+// 1. 判断用户资产是否足够
+// 2. redis中不存在，从mysql中读取，写入redis
+func (u *AssetService) Freeze(uid int64, coin string, amount *big.Float) error {
+	err := u.tryTransfer(AvailableToFrozen, uid, uid, coin, amount)
+	if err != nil {
+		return err
+	}
+
+	u.redis.CleanUserAsset(uid, coin)
+	return nil
+}
+
+// UnFreeze 解冻资产
+func (u *AssetService) UnFreeze(uid int64, coin string, amount *big.Float) error {
+	err := u.tryTransfer(FrozenToAvailable, uid, uid, coin, amount)
+	if err != nil {
+		return err
+	}
+
+	u.redis.CleanUserAsset(uid, coin)
+	return nil
+}
+
+func (u *AssetService) Transfer(fromUid int64, toUid int64, coin string, amount *big.Float) error {
+	err := u.tryTransfer(AvailableToAvailable, fromUid, toUid, coin, amount)
+	if err != nil {
+		return err
+	}
+
+	u.redis.CleanUserAsset(fromUid, coin)
+	u.redis.CleanUserAsset(toUid, coin)
+	return nil
+}
+
+func (u *AssetService) Add(uid int64, coin string, amount *big.Float) error {
+	err := u.tryTransfer(AddToAvailable, uid, uid, coin, amount)
+	if err != nil {
+		return err
+	}
+
+	u.redis.CleanUserAsset(uid, coin)
+	return nil
+}
+
+func (u *AssetService) Dec(uid int64, coin string, amount *big.Float) error {
+	err := u.tryTransfer(DecToAvailable, uid, uid, coin, amount)
+	if err != nil {
+		return err
+	}
+
+	u.redis.CleanUserAsset(uid, coin)
+	return nil
 }
