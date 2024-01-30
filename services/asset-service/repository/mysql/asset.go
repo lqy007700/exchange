@@ -1,7 +1,6 @@
 package mysql
 
 import (
-	"asset-service/asset-service/config"
 	"asset-service/asset-service/repository/model"
 	"fmt"
 	"github.com/jinzhu/gorm"
@@ -18,8 +17,8 @@ type AssetDB struct {
 	DB *gorm.DB
 }
 
-func New(conf *config.Config) *AssetDB {
-	repo := &AssetDB{DB: newDB(conf)}
+func New() *AssetDB {
+	repo := &AssetDB{DB: newDB()}
 	return repo
 }
 

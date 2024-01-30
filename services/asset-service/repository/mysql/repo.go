@@ -8,21 +8,23 @@ import (
 	"time"
 )
 
-func newDB(conf *config.Config) *gorm.DB {
-	db, err := gorm.Open("mysql", conf.SqlMap["community"].DSN)
+func newDB() *gorm.DB {
+	conf := config.Conf
+	logger.Info(conf.SqlMap)
+	db, err := gorm.Open("mysql", conf.SqlMap["asset"].DSN)
 	if err != nil || db == nil {
 		panic(err)
 	}
-	db.DB().SetMaxIdleConns(conf.SqlMap["community"].MaxIdle)
-	db.DB().SetMaxOpenConns(conf.SqlMap["community"].MaxConn)
-	db.DB().SetConnMaxLifetime(time.Duration(conf.SqlMap["community"].MaxLifeTime))
+	db.DB().SetMaxIdleConns(conf.SqlMap["asset"].MaxIdle)
+	db.DB().SetMaxOpenConns(conf.SqlMap["asset"].MaxConn)
+	db.DB().SetConnMaxLifetime(time.Duration(conf.SqlMap["asset"].MaxLifeTime))
 	db.LogMode(conf.Log.MysqlLog)
 	if err := db.DB().Ping(); err != nil {
 		panic(err)
 	} else {
-		logger.Infof("community db connected.")
+		logger.Infof("asset db connected.")
 	}
-	db.Callback().Create().Replace("gorm:update_time_stamp", updateTimeStampForCreateCallback)
+	//db.Callback().Create().Replace("gorm:update_time_stamp", updateTimeStampForCreateCallback)
 	return db
 }
 

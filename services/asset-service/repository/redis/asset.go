@@ -19,7 +19,8 @@ type AssetCache struct {
 	client *redis.Client
 }
 
-func NewAssetCache(conf *config.Redis) *AssetCache {
+func NewAssetCache() *AssetCache {
+	conf := config.Conf.Redis
 	c := &AssetCache{
 		client: redis.NewClient(&redis.Options{
 			Addr:         conf.Addr,

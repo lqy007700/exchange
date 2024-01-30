@@ -1,50 +1,26 @@
 package config
 
 import (
-	"flag"
-	"fmt"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
+	"github.com/go-micro/plugins/v4/config/encoder/yaml"
+	"go-micro.dev/v4/config"
+	"go-micro.dev/v4/config/reader"
+	"go-micro.dev/v4/config/reader/json"
+	"go-micro.dev/v4/config/source/file"
+	"go-micro.dev/v4/logger"
 	"time"
 )
 
-var (
-	confPath string
-	Conf     *Config
-)
-
-func init() {
-	flag.StringVar(&confPath, "c", "", "config file path")
-}
-
-func Init() (err error) {
-	file, err := ioutil.ReadFile(confPath)
-	if err != nil {
-		currentPath, _ := os.Getwd()
-		fmt.Println("current path: ", currentPath, " given config path: ", confPath)
-		return
-	}
-	err = yaml.Unmarshal(file, &Conf)
-	return
-}
-
-type Duration time.Duration
-
-// UnmarshalText unmarshal text to duration.
-func (d *Duration) UnmarshalText(text []byte) error {
-	tmp, err := time.ParseDuration(string(text))
-	if err == nil {
-		*d = Duration(tmp)
-	}
-	return err
-}
-
 // Config config
 type Config struct {
-	Log    *Log              `yaml:"log"`
-	SqlMap map[string]*Mysql `yaml:"mysql"`
-	Redis  *Redis            `yaml:"redis"`
+	Micro     *Micro            `yaml:"micro"`
+	Log       *Log              `yaml:"log"`
+	SqlMap    map[string]*Mysql `yaml:"mysql"`
+	Redis     *Redis            `yaml:"redis"`
+	RPCServer *RPCServer        `yaml:"rpcServer"`
+}
+
+type Micro struct {
+	Name string `json:"name"`
 }
 
 type Log struct {
@@ -88,9 +64,47 @@ type Redis struct {
 	IdleTimeout  Duration `yaml:"idleTimeout"`
 }
 
-type GrpcClient struct {
+var (
+	confPath = "/Users/lqy007700/Data/code/go-application/exchange/services/asset-service/config/config.yaml"
+	Conf     *Config
+)
+
+func Init() (err error) {
+	enc := yaml.NewEncoder()
+	c, _ := config.NewConfig(config.WithReader(
+		json.NewReader( // json reader for internal config merge
+			reader.WithEncoder(enc),
+		),
+	))
+
+	err = c.Load(file.NewSource(file.WithPath(confPath)))
+	if err != nil {
+		logger.Errorf("load config error: %v", err)
+		return err
+	}
+
+	// read a database host
+	if err := c.Scan(&Conf); err != nil {
+		logger.Errorf("scan config error: %v", err)
+		return err
+	}
+
+	d := map[string]*Mysql{}
+	err = c.Get("mysql").Scan(&d)
+	if err != nil {
+		return err
+	}
+	Conf.SqlMap = d
+	return nil
 }
 
-func GetConfPath() string {
-	return confPath
+type Duration time.Duration
+
+// UnmarshalText unmarshal text to duration.
+func (d *Duration) UnmarshalText(text []byte) error {
+	tmp, err := time.ParseDuration(string(text))
+	if err == nil {
+		*d = Duration(tmp)
+	}
+	return err
 }

@@ -1,0 +1,43 @@
+micro:
+  name: asset
+logger:
+  level: debug
+  format: json
+  output:
+    file: /Users/lqy007700/Data/log/exchange/log.log
+log:
+  info: "/Users/lqy007700/Data/log/exchange/log.log"
+  error: "/Users/lqy007700/Data/log/exchange/loge.log"
+  stdout: true
+  mysql: true
+  debug: true
+mysql:
+  asset:
+    dsn: "root:root@tcp(127.0.0.1:3306)/test"
+    max_idle_connection: 100
+    max_connection: 500
+    max_life_time: "10m"
+redis:
+  network: "tcp"
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+  dialTimeout: "200ms"
+  readTimeout: "5s"
+  writeTimeout: "5s"
+  #poolsize is the redis client pool
+  poolsize: 100
+  #minIdleConns means the minimum of client connections in idle status
+  minIdleConns: 50
+  idleTimeout: "120s"
+rpcServer:
+  network: "tcp"
+  addr: ":8808"
+  timeout: "1s"
+  idleTimeout: "60s"
+  maxLifeTime: "60s"
+  ForceCloseWait: "60s"
+  KeepAliveInterval: "60s"
+  KeepAliveTimeout: "60s"
+  #address for distributed tracing system - jaeger
+  jaegerAddr: ""
