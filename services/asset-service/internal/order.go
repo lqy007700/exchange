@@ -1,11 +1,12 @@
 package internal
 
 import (
-	"asset-service/asset-service/internal/sequencer"
-	"asset-service/asset-service/pkg/util"
-	"asset-service/asset-service/repository/mq"
-	"asset-service/asset-service/repository/mysql"
-	redis2 "asset-service/asset-service/repository/redis"
+	"asset-service/internal/sequencer"
+	"asset-service/pkg/util"
+	"asset-service/repository/mq"
+	"asset-service/repository/mysql"
+	"asset-service/repository/redis"
+
 	"encoding/json"
 	"go-micro.dev/v4/broker"
 	"go-micro.dev/v4/logger"
@@ -36,13 +37,13 @@ type TrustOrder struct {
 
 type OrderService struct {
 	db            *mysql.AssetDB
-	redis         *redis2.AssetCache
+	redis         *redis.AssetCache
 	kafkaProducer *mq.Service
 	seq           *sequencer.Seq
 	mq            *mq.Service
 }
 
-func NewOrderService(db *mysql.AssetDB, redis *redis2.AssetCache, mq *mq.Service) *OrderService {
+func NewOrderService(db *mysql.AssetDB, redis *redis.AssetCache, mq *mq.Service) *OrderService {
 	return &OrderService{db: db, redis: redis, mq: mq}
 }
 
@@ -53,7 +54,12 @@ func (o *OrderService) CreateOrder(order *TrustOrder) error {
 
 	producer := o.mq.Producer()
 
-	marshal, err := json.Marshal(order)
+	ev := &Event{
+		Type: Create,
+		Data: order,
+	}
+
+	marshal, err := json.Marshal(ev)
 	if err != nil {
 		logger.Errorf("marshal order error: %v", err)
 		return err

@@ -1,7 +1,7 @@
 package mysql
 
 import (
-	"asset-service/asset-service/repository/model"
+	"asset-service/repository/model"
 	"fmt"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"

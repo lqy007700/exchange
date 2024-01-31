@@ -1,8 +1,8 @@
 package redis
 
 import (
-	"asset-service/asset-service/config"
-	"asset-service/asset-service/repository/model"
+	"asset-service/config"
+	"asset-service/repository/model"
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis"

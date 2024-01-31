@@ -1,9 +1,9 @@
 package internal
 
 import (
-	"asset-service/asset-service/repository/model"
-	"asset-service/asset-service/repository/mysql"
-	"asset-service/asset-service/repository/redis"
+	"asset-service/repository/model"
+	"asset-service/repository/mysql"
+	"asset-service/repository/redis"
 	"github.com/golang/groupcache/singleflight"
 	"go-micro.dev/v4/logger"
 	"math/big"

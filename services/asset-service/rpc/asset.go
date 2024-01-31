@@ -1,8 +1,8 @@
 package rpc
 
 import (
-	"asset-service/asset-service/internal"
-	asset_service "asset-service/asset-service/proto"
+	"asset-service/internal"
+	asset_service "asset-service/proto"
 	context "context"
 	"go-micro.dev/v4/logger"
 )

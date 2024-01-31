@@ -1,7 +1,7 @@
 package mysql
 
 import (
-	"asset-service/asset-service/config"
+	"engine-service/config"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
 	"go-micro.dev/v4/logger"

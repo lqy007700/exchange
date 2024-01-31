@@ -1,14 +1,15 @@
 package main
 
 import (
-	"asset-service/asset-service/config"
-	"asset-service/asset-service/internal"
-	asset_service "asset-service/asset-service/proto"
-	"asset-service/asset-service/repository/mq"
-	"asset-service/asset-service/repository/mysql"
-	"asset-service/asset-service/repository/redis"
-	"asset-service/asset-service/rpc"
+	"asset-service/config"
+	"asset-service/internal"
+	asset_service "asset-service/proto"
+	"asset-service/repository/mq"
+	"asset-service/repository/mysql"
+	"asset-service/repository/redis"
+	"asset-service/rpc"
 	"fmt"
+	"github.com/go-micro/plugins/v4/broker/kafka"
 	_ "github.com/go-sql-driver/mysql"
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/broker"
@@ -30,6 +31,7 @@ func main() {
 	service := micro.NewService(
 		micro.Name(config.Conf.Micro.Name),
 		micro.Address(config.Conf.RPCServer.Addr),
+		micro.Broker(kafka.NewBroker()),
 		//micro.Logger(initLogger),
 	)
 

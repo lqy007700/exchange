@@ -9,7 +9,6 @@ services:
       - ALLOW_ANONYMOUS_LOGIN=yes
     volumes:
       - "./docker/zookeeper-data:/bitnami"
-
   kafka:
     image: bitnami/kafka:3.0
     container_name: kafka
@@ -34,7 +33,6 @@ services:
       - "6379:6379"
     volumes:
       - "./docker/redis-data:/data"
-
   mysql:
     image: mysql:8
     container_name: mysql

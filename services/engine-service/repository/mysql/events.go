@@ -1,6 +1,6 @@
 package mysql
 
-import "asset-service/asset-service/repository/model"
+import "engine-service/repository/model"
 
 func (r *AssetDB) getId() (int64, error) {
 	res := &model.Events{}
