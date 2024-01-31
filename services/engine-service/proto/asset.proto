@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package asset_service;
+option go_package = "./proto;asset_service";
+
+// ------------Ad service------------------
+
+service AssetService {
+  // 获取用户资产
+  rpc GetAsset(GetAssetReq) returns (Asset) {}
+  // 获取用户所有资产
+  rpc GetAssets(GetAssetsReq) returns (GetAssetsResp) {}
+
+  // 冻结&解冻
+  rpc Freeze(FreezeReq) returns (CommonResp) {}
+  rpc UnFreeze(FreezeReq) returns (CommonResp) {}
+}
+
+message Asset{
+  // 资产类型
+  string coin = 1;
+  // 可用
+  string available = 2;
+  // 冻结
+  string frozen = 3;
+}
+
+message GetAssetReq {
+  int64 uid = 1;
+  string coin = 2;
+}
+
+message GetAssetsReq {
+  int64 uid = 1;
+}
+
+message GetAssetsResp{
+  repeated Asset assets = 1;
+}
+
+message FreezeReq {
+  int64 uid = 1;
+  int32 coin = 2;
+  string amount = 3;
+}
+
+message CommonResp {
+  int32 code = 1;
+  string msg = 2;
+}
