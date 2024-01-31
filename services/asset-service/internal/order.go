@@ -6,6 +6,7 @@ import (
 	"asset-service/repository/mq"
 	"asset-service/repository/mysql"
 	"asset-service/repository/redis"
+	order2 "github.com/lqy007700/exchange/common/order"
 
 	"encoding/json"
 	"go-micro.dev/v4/broker"
@@ -14,25 +15,15 @@ import (
 	"time"
 )
 
-type OrderStatus int32
-
-const (
-	Pending          OrderStatus = iota // 等待成交
-	FullyFilled                         // 完全成交
-	PartialFilled                       // 部分成交
-	PartialCancelled                    // 部分成交后取消
-	FullyCancelled                      // 完全取消
-)
-
 // TrustOrder 委托单
 type TrustOrder struct {
-	ID       string      `json:"id"`
-	UserID   int64       `json:"user_id"`
-	Symbol   string      `json:"symbol"`
-	Amount   *big.Float  `json:"amount"`
-	Price    *big.Float  `json:"price"`
-	Status   OrderStatus `json:"status"`
-	CreateAt time.Time   `json:"create_at"`
+	ID       string        `json:"id"`
+	UserID   int64         `json:"user_id"`
+	Symbol   string        `json:"symbol"`
+	Amount   *big.Float    `json:"amount"`
+	Price    *big.Float    `json:"price"`
+	Status   order2.Status `json:"status"`
+	CreateAt time.Time     `json:"create_at"`
 }
 
 type OrderService struct {
@@ -50,7 +41,7 @@ func NewOrderService(db *mysql.AssetDB, redis *redis.AssetCache, mq *mq.Service)
 // CreateOrder 创建订单
 func (o *OrderService) CreateOrder(order *TrustOrder) error {
 	order.ID = util.GetNum()
-	order.Status = Pending
+	order.Status = order2.Pending
 
 	producer := o.mq.Producer()
 
