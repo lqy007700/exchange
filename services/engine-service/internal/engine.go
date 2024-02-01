@@ -13,23 +13,16 @@ import (
 
 // TrustOrder 委托单
 type TrustOrder struct {
-	ID               string       `json:"id"`
-	UserID           int64        `json:"user_id"`
-	Symbol           string       `json:"symbol"`
-	Amount           *big.Float   `json:"amount"`
-	Price            *big.Float   `json:"price"`
-	UnfilledQuantity *big.Float   `json:"unfilled_quantity"`
-	Status           order.Status `json:"status"`
-	CreateAt         time.Time    `json:"create_at"`
-	Direction        Direction    `json:"direction"`
+	ID               string          `json:"id"`
+	UserID           int64           `json:"user_id"`
+	Symbol           string          `json:"symbol"`
+	Amount           *big.Float      `json:"amount"`
+	Price            *big.Float      `json:"price"`
+	UnfilledQuantity *big.Float      `json:"unfilled_quantity"`
+	Status           order.Status    `json:"status"`
+	CreateAt         time.Time       `json:"create_at"`
+	Direction        order.Direction `json:"direction"`
 }
-
-type Direction int
-
-const (
-	Buy Direction = iota
-	Sell
-)
 
 type EngineService struct {
 	mq   *mq.Service
