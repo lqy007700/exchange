@@ -9,11 +9,12 @@ import (
 type OrderEntity struct {
 	ID               string     `json:"id"`
 	UserID           int64      `json:"user_id"`
-	Symbol           string     `json:"symbol"`
+	CoinFrom         string     `json:"coin_from"`
+	CoinTo           string     `json:"coin_to"`
+	Direction        Direction  `json:"direction"`
+	Price            *big.Float `json:"price"`
 	Quantity         *big.Float `json:"quantity"`
 	UnfilledQuantity *big.Float `json:"unfilled_quantity"`
-	Price            *big.Float `json:"price"`
 	Status           Status     `json:"status"`
 	CreateAt         time.Time  `json:"create_at"`
-	Direction        Direction  `json:"direction"`
 }
