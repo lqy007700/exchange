@@ -17,6 +17,7 @@ type Config struct {
 	SqlMap    map[string]*Mysql `yaml:"mysql"`
 	Redis     *Redis            `yaml:"redis"`
 	RPCServer *RPCServer        `yaml:"rpcServer"`
+	Kafka     *Kafka            `yaml:"kafka"`
 }
 
 type Micro struct {
@@ -24,12 +25,9 @@ type Micro struct {
 }
 
 type Log struct {
-	Info        string `yaml:"info"`
-	Error       string `yaml:"error"`
-	Stdout      bool   `yaml:"stdout"`
-	MysqlLog    bool   `yaml:"mysql"`
-	Performance string `yaml:"performance"`
-	Debug       bool   `yaml:"debug"`
+	Info   string `yaml:"info"`
+	Error  string `yaml:"error"`
+	Stdout bool   `yaml:"stdout"`
 }
 
 type RPCServer struct {
@@ -64,6 +62,10 @@ type Redis struct {
 	IdleTimeout  Duration `yaml:"idleTimeout"`
 }
 
+type Kafka struct {
+	Brokers []string `yaml:"brokers"`
+}
+
 var (
 	confPath = "/Users/lqy007700/Data/code/go-application/exchange/services/asset-service/config/config.yaml"
 	Conf     *Config
@@ -95,6 +97,8 @@ func Init() (err error) {
 		return err
 	}
 	Conf.SqlMap = d
+
+	InitLogger()
 	return nil
 }
 

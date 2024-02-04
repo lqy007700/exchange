@@ -46,8 +46,3 @@ type BuyBook struct {
 func (b *BuyBook) Less(i, j int) bool {
 	return b.data[i].Price.Cmp(b.data[j].Price) > 0
 }
-
-// Books 空接口 方便接收参数
-type Books interface {
-	Len() int
-}
