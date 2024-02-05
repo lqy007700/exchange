@@ -4,6 +4,8 @@ import (
 	"container/heap"
 	"encoding/json"
 	"engine-service/repository/mq"
+	"engine-service/repository/redis"
+	"fmt"
 	"github.com/Shopify/sarama"
 	order2 "github.com/lqy007700/exchange/common/order"
 	"github.com/pkg/errors"
@@ -11,36 +13,57 @@ import (
 	"math/big"
 )
 
-// TrustOrder 委托单
-//type TrustOrder struct {
-//	ID               string           `json:"id"`
-//	UserID           int64            `json:"user_id"`
-//	Symbol           string           `json:"symbol"`
-//	Amount           *big.Float       `json:"amount"`
-//	Price            *big.Float       `json:"price"`
-//	UnfilledQuantity *big.Float       `json:"unfilled_quantity"`
-//	Status           order2.Status    `json:"status"`
-//	CreateAt         time.Time        `json:"create_at"`
-//	Direction        order2.Direction `json:"direction"`
-//}
+const (
+	// QueueEngineTopic 撮合引擎消息队列
+	QueueEngineTopic = "queue-engine-topic-%s" // coin_pair
+)
 
-type EngineService struct {
-	mq   *mq.KafkaClient
+type Engine struct {
+	//mq   *mq.KafkaClient
+	mq *mq.KafkaClient
+
 	buy  *BuyBook
 	sell *SellBook
+
+	// Close 关闭通道
+	Close <-chan struct{}
 }
 
-func NewEngineService(mq *mq.KafkaClient) *EngineService {
-	buy := &BuyBook{}
-	sell := &SellBook{}
+func NewEngine(cache *redis.BooksCache, coinPair string, mq *mq.KafkaClient) *Engine {
+	// 初始化从Cache中加载订单簿
+	buyBooks, err := cache.GetBooks(coinPair, order2.Buy)
+	if err != nil {
+		logger.Errorf("get buy books error: %v", err)
+		panic(err)
+	}
+	sellBooks, err := cache.GetBooks(coinPair, order2.Sell)
+	if err != nil {
+		logger.Errorf("get sell books error: %v", err)
+		panic(err)
+	}
+
+	buy := &BuyBook{Common: Common{data: buyBooks}}
+	sell := &SellBook{Common{data: sellBooks}}
 	heap.Init(buy)
 	heap.Init(sell)
 
-	return &EngineService{mq: mq, buy: buy, sell: sell}
+	return &Engine{
+		buy:  buy,
+		sell: sell,
+		mq:   mq,
+	}
 }
 
-func (e *EngineService) processOrder(takerOrder *TrustOrder, makerBooks heap.Interface, anotherBooks heap.Interface) (*MatchResult, error) {
-	takerUnfilledQuantity := takerOrder.Amount
+func (e *Engine) Start(coinPair string) {
+	// todo 需要处理 engine 的 close 信号
+	topic := fmt.Sprintf(QueueEngineTopic, coinPair)
+	e.mq.Consume(topic, e.processMsg)
+	defer e.mq.Close()
+}
+
+// ProcessOrder 撮合
+func (e *Engine) processOrder(takerOrder *order2.OrderEntity, makerBooks heap.Interface, anotherBooks heap.Interface) (*MatchResult, error) {
+	takerUnfilledQuantity := takerOrder.Quantity
 	matchRes := newMatchResult()
 
 	for makerBooks.Len() > 0 {
@@ -51,7 +74,7 @@ func (e *EngineService) processOrder(takerOrder *TrustOrder, makerBooks heap.Int
 			break
 		}
 
-		makerOrder, ok := pop.(*TrustOrder)
+		makerOrder, ok := pop.(*order2.OrderEntity)
 		if !ok || makerOrder == nil {
 			logger.Error("pop is not a TrustOrder")
 			break
@@ -105,13 +128,9 @@ func (e *EngineService) processOrder(takerOrder *TrustOrder, makerBooks heap.Int
 	return matchRes, nil
 }
 
-// ProcessMsg 处理创建订单消息
-func (e *EngineService) ProcessMsg() {
-	e.mq.Consume("order", e.processMsg)
-}
-
-func (e *EngineService) processMsg(msg *sarama.ConsumerMessage) error {
-	order := &TrustOrder{}
+// processMsg 接收消息队列消息
+func (e *Engine) processMsg(msg *sarama.ConsumerMessage) error {
+	order := &order2.OrderEntity{}
 	err := json.Unmarshal(msg.Value, order)
 	if err != nil {
 		logger.Errorf("unmarshal order error: %v", err)
@@ -133,21 +152,8 @@ func (e *EngineService) processMsg(msg *sarama.ConsumerMessage) error {
 		logger.Errorf("unknown event type: %v", order.Direction)
 	}
 
-	// 批量发送撮合结果给 kafka
-	if mr != nil {
-		for _, detail := range mr.matchDetails {
-			detailJson, err := json.Marshal(detail)
-			if err != nil {
-				logger.Errorf("marshal match result detail error: %v", err)
-				continue
-			}
-			err = e.mq.Produce("match_result", detailJson)
-			if err != nil {
-				logger.Errorf("send match result error: %v", err)
-				continue
-			}
-		}
-	}
+	mr.mq = e.mq
+	mr.sendMatchResToQueue()
 	return nil
 }
 

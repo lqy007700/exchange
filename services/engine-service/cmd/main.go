@@ -27,11 +27,22 @@ func main() {
 		return
 	}
 
-	engineService := internal.NewEngineService(client)
-
-	go engineService.ProcessMsg()
+	initEngine(client)
 
 	if err := service.Run(); err != nil {
 		panic(err)
+	}
+}
+
+// initEngine 初始化撮合
+func initEngine(client *mq.KafkaClient) {
+	logger.Info("init engine")
+	engines := make(map[string]*internal.Engine)
+	coinParis := []string{"btc_usdt", "eth_usdt", "eth_btc"}
+	for _, coinPair := range coinParis {
+		engine := internal.NewEngine(nil, coinPair, client)
+		go engine.Start(coinPair)
+		engines[coinPair] = engine
+		logger.Infof("init engine for %s success", coinPair)
 	}
 }

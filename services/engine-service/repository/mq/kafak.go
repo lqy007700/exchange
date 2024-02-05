@@ -52,14 +52,22 @@ func (kc *KafkaClient) Produce(topic string, message []byte) error {
 }
 
 func (kc *KafkaClient) Consume(topic string, handler MsgHandler) {
+	isPanic := true
 	for {
 		partitionConsumer, err := kc.consumer.ConsumePartition(topic, 0, sarama.OffsetOldest)
+
 		if err != nil {
+			// 初次启动时
+			if isPanic {
+				panic(fmt.Sprintf("Error occurred while consuming message: %+v", err))
+			}
+
 			logger.Errorf("Error occurred while consuming message,again in 5 seconds: %+v", err)
 			// Sleep for a while before trying to reconnect
 			time.Sleep(time.Second * 5)
 			continue
 		}
+		isPanic = false
 
 		for msg := range partitionConsumer.Messages() {
 			err = handler(msg)

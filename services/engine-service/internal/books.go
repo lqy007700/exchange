@@ -1,9 +1,11 @@
 package internal
 
+import "github.com/lqy007700/exchange/common/order"
+
 // Common
 // SellBook BuyBook 组合 Common 避免重复代码
 type Common struct {
-	data []*TrustOrder
+	data []*order.OrderEntity
 }
 
 func (s *Common) Len() int {
@@ -15,7 +17,7 @@ func (s *Common) Swap(i, j int) {
 }
 
 func (s *Common) Push(x any) {
-	s.data = append(s.data, x.(*TrustOrder))
+	s.data = append(s.data, x.(*order.OrderEntity))
 }
 
 func (s *Common) Pop() any {
@@ -34,7 +36,11 @@ type SellBook struct {
 	Common
 }
 
+// Less 价格优先 价格相同时间优先
 func (s *SellBook) Less(i, j int) bool {
+	if s.data[i].Price.Cmp(s.data[j].Price) == 0 {
+		return s.data[i].CreateAt.Before(s.data[j].CreateAt)
+	}
 	return s.data[i].Price.Cmp(s.data[j].Price) < 0
 }
 
@@ -43,6 +49,10 @@ type BuyBook struct {
 	Common
 }
 
+// Less 价格优先 时间优先
 func (b *BuyBook) Less(i, j int) bool {
+	if b.data[i].Price.Cmp(b.data[j].Price) == 0 {
+		return b.data[i].CreateAt.Before(b.data[j].CreateAt)
+	}
 	return b.data[i].Price.Cmp(b.data[j].Price) > 0
 }

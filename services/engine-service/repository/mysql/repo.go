@@ -18,7 +18,6 @@ func newDB() *gorm.DB {
 	db.DB().SetMaxIdleConns(conf.SqlMap["asset"].MaxIdle)
 	db.DB().SetMaxOpenConns(conf.SqlMap["asset"].MaxConn)
 	db.DB().SetConnMaxLifetime(time.Duration(conf.SqlMap["asset"].MaxLifeTime))
-	db.LogMode(conf.Log.MysqlLog)
 	if err := db.DB().Ping(); err != nil {
 		panic(err)
 	} else {
