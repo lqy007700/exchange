@@ -38,7 +38,8 @@ func main() {
 	db := mysql.New()
 	cache := redis.NewAssetCache()
 
-	mqSvc := mq.NewService()
+	mqSvc, _ := mq.NewKafkaClient()
+
 	as := &rpc.AssetService{
 		Asset: internal.NewAssetService(db, cache),
 		Order: internal.NewOrderService(db, cache, mqSvc),

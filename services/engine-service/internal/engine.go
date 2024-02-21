@@ -25,12 +25,16 @@ type Engine struct {
 	buy  *BuyBook
 	sell *SellBook
 
+	CoinPair string
+
 	// Close 关闭通道
 	Close <-chan struct{}
 }
 
 func NewEngine(cache *redis.BooksCache, coinPair string, mq *mq.KafkaClient) *Engine {
 	// 初始化从Cache中加载订单簿
+	// todo 需要保证订单的有效
+	// 最好以 db 的数据为主
 	buyBooks, err := cache.GetBooks(coinPair, order2.Buy)
 	if err != nil {
 		logger.Errorf("get buy books error: %v", err)
@@ -48,21 +52,37 @@ func NewEngine(cache *redis.BooksCache, coinPair string, mq *mq.KafkaClient) *En
 	heap.Init(sell)
 
 	return &Engine{
-		buy:  buy,
-		sell: sell,
-		mq:   mq,
+		buy:      buy,
+		sell:     sell,
+		CoinPair: coinPair,
+		mq:       mq,
 	}
+}
+
+func (e *Engine) GetOrderBookList() {
+	logger.Infof("coinPair: %s BEGIN---------", e.CoinPair)
+	for i, datum := range e.buy.data {
+		logger.Infof("buy[%d]: %v", i, datum)
+	}
+
+	for i, datum := range e.sell.data {
+		logger.Infof("sell[%d]: %v", i, datum)
+	}
+	logger.Infof("coinPair : %s END---------", e.CoinPair)
 }
 
 func (e *Engine) Start(coinPair string) {
 	// todo 需要处理 engine 的 close 信号
 	topic := fmt.Sprintf(QueueEngineTopic, coinPair)
+	logger.Infof("start engine for %s", topic)
+	//e.mq.GroupMsg(topic, e.processMsg)
 	e.mq.Consume(topic, e.processMsg)
 	defer e.mq.Close()
 }
 
 // ProcessOrder 撮合
 func (e *Engine) processOrder(takerOrder *order2.OrderEntity, makerBooks heap.Interface, anotherBooks heap.Interface) (*MatchResult, error) {
+	logger.Infof("process order: %v", takerOrder)
 	takerUnfilledQuantity := takerOrder.Quantity
 	matchRes := newMatchResult()
 
@@ -130,11 +150,19 @@ func (e *Engine) processOrder(takerOrder *order2.OrderEntity, makerBooks heap.In
 
 // processMsg 接收消息队列消息
 func (e *Engine) processMsg(msg *sarama.ConsumerMessage) error {
-	order := &order2.OrderEntity{}
-	err := json.Unmarshal(msg.Value, order)
+	ev := &Event{
+		Data: &order2.OrderEntity{},
+	}
+	err := json.Unmarshal(msg.Value, ev)
 	if err != nil {
 		logger.Errorf("unmarshal order error: %v", err)
 		return err
+	}
+
+	order, ok := ev.Data.(*order2.OrderEntity)
+	if !ok {
+		logger.Errorf("ev.Data.(*order2.OrderEntity) error: %v", err)
+		return errors.New("ev.Data.(*order2.OrderEntity) error")
 	}
 
 	if order == nil {
@@ -153,7 +181,7 @@ func (e *Engine) processMsg(msg *sarama.ConsumerMessage) error {
 	}
 
 	mr.mq = e.mq
-	mr.sendMatchResToQueue()
+	//mr.sendMatchResToQueue()
 	return nil
 }
 

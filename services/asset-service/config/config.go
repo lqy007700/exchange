@@ -17,6 +17,7 @@ type Config struct {
 	SqlMap    map[string]*Mysql `yaml:"mysql"`
 	Redis     *Redis            `yaml:"redis"`
 	RPCServer *RPCServer        `yaml:"rpcServer"`
+	Kafka     *Kafka            `yaml:"kafka"`
 }
 
 type Micro struct {
@@ -30,6 +31,10 @@ type Log struct {
 	MysqlLog    bool   `yaml:"mysql"`
 	Performance string `yaml:"performance"`
 	Debug       bool   `yaml:"debug"`
+}
+
+type Kafka struct {
+	Brokers []string `yaml:"brokers"`
 }
 
 type RPCServer struct {

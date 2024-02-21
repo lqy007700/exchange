@@ -10,7 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
 	github.com/jinzhu/gorm v1.9.16
-	github.com/lqy007700/exchange/common v0.0.0-20240131092853-800b56588872
+	github.com/lqy007700/exchange/common v0.0.0-20240205085804-df30a971cd6f
 	github.com/pkg/errors v0.9.1
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7.0.20210127161313-bd30bebeac4f
 	go-micro.dev/v4 v4.9.0

@@ -67,7 +67,8 @@ type Kafka struct {
 }
 
 var (
-	confPath = "/Users/lqy007700/Data/code/go-application/exchange/services/asset-service/config/config.yaml"
+	// todo 需要通过参数传递
+	confPath = "/Users/lqy007700/Data/code/go-application/exchange/services/engine-service/config/config.yaml"
 	Conf     *Config
 )
 

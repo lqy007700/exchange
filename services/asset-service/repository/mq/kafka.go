@@ -1,57 +1,97 @@
 package mq
 
 import (
-	"github.com/go-micro/plugins/v4/broker/kafka"
-	"go-micro.dev/v4/broker"
+	"asset-service/config"
+	"fmt"
+	"github.com/Shopify/sarama"
+	"go-micro.dev/v4/logger"
+	"log"
+	"time"
 )
 
-// Service 封装了与 Kafka 交互的功能
-type Service struct {
-	producer broker.Broker
-	consumer broker.Broker
+type KafkaClient struct {
+	producer sarama.SyncProducer
+	consumer sarama.Consumer
+	topics   []string
 }
 
-// NewService 创建一个新的 Kafka 服务实例
-func NewService() *Service {
-	s := &Service{}
-	err := s.Init()
+type MsgHandler func(msg *sarama.ConsumerMessage) error
+
+func NewKafkaClient() (*KafkaClient, error) {
+	conf := sarama.NewConfig()
+
+	conf.Consumer.Return.Errors = true
+	conf.Producer.Return.Errors = true
+	conf.Producer.Return.Successes = true
+	conf.Consumer.Offsets.AutoCommit.Enable = false
+
+	logger.Infof("kafka brokers: %v", config.Conf.Kafka.Brokers)
+	producer, err := sarama.NewSyncProducer(config.Conf.Kafka.Brokers, conf)
 	if err != nil {
-		return nil
+		logger.Fatalf("Error occurred while creating kafka producer: %+v", err)
+		return nil, err
 	}
-	return s
-}
 
-// Init 初始化 Kafka 服务
-func (s *Service) Init() error {
-
-	b := kafka.NewBroker(broker.Addrs([]string{"127.0.0.1:9092"}...), broker.Addrs())
-
-	err := b.Connect()
+	consumer, err := sarama.NewConsumer(config.Conf.Kafka.Brokers, conf)
 	if err != nil {
-		return err
+		logger.Fatalf("Error occurred while creating kafka consumer: %+v", err)
+		return nil, err
 	}
-	s.producer = b
-	s.consumer = b
 
-	return nil
+	return &KafkaClient{
+		producer: producer,
+		consumer: consumer,
+	}, nil
 }
 
-// Close 关闭 Kafka 服务
-func (s *Service) Close() {
-	if s.producer != nil {
-		s.producer.Disconnect()
+func (kc *KafkaClient) Produce(topic string, message []byte) error {
+	msg := &sarama.ProducerMessage{
+		Topic: topic,
+		Value: sarama.StringEncoder(message),
 	}
-	if s.consumer != nil {
-		s.consumer.Disconnect()
+
+	_, _, err := kc.producer.SendMessage(msg)
+	return err
+}
+
+func (kc *KafkaClient) Consume(topic string, handler MsgHandler) {
+	isPanic := true
+	for {
+		partitionConsumer, err := kc.consumer.ConsumePartition(topic, 0, sarama.OffsetOldest)
+
+		if err != nil {
+			// 初次启动时
+			if isPanic {
+				panic(fmt.Sprintf("Error occurred while consuming message: %+v", err))
+			}
+
+			logger.Errorf("Error occurred while consuming message,again in 5 seconds: %+v", err)
+			// Sleep for a while before trying to reconnect
+			time.Sleep(time.Second * 5)
+			continue
+		}
+		isPanic = false
+
+		for msg := range partitionConsumer.Messages() {
+			err = handler(msg)
+			if err != nil {
+				logger.Errorf("Error occurred while handling message: %+v", err)
+				continue
+			}
+			fmt.Printf("Consumed message offset %d\n", msg.Offset)
+		}
+
+		// If we reach here, it means the partitionConsumer has been closed and we need to reinitialize it.
+		log.Println("Kafka connection closed, trying to reconnect...")
 	}
 }
 
-// Producer 返回 Kafka 生产者
-func (s *Service) Producer() broker.Broker {
-	return s.producer
-}
+func (kc *KafkaClient) Close() {
+	if err := kc.producer.Close(); err != nil {
+		logger.Errorf("close kafka producer error: %v", err)
+	}
 
-// Consumer 返回 Kafka 消费者
-func (s *Service) Consumer() broker.Broker {
-	return s.consumer
+	if err := kc.consumer.Close(); err != nil {
+		logger.Errorf("close kafka consumer error: %v", err)
+	}
 }

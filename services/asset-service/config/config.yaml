@@ -41,3 +41,6 @@ rpcServer:
   KeepAliveTimeout: "60s"
   #address for distributed tracing system - jaeger
   jaegerAddr: ""
+kafka:
+  brokers:
+    - "127.0.0.1:9092"
