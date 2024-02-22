@@ -63,34 +63,66 @@ func (c *BooksCache) Close() error {
 
 func (c *BooksCache) GetBooks(coinPair string, direction order.Direction) ([]*order.OrderEntity, error) {
 	var (
-		scores *redis.ZSliceCmd
 		orders []*order.OrderEntity
+		key    string
 	)
 
 	switch direction {
 	case order.Buy:
-		key := fmt.Sprintf(OrderBooksZsetBuy, coinPair)
-		scores = c.client.ZRevRangeWithScores(key, 0, -1)
+
+		key = fmt.Sprintf(OrderBooksZsetBuy, coinPair)
+		break
 	case order.Sell:
-		key := fmt.Sprintf(OrderBooksZsetSell, coinPair)
-		scores = c.client.ZRangeWithScores(key, 0, -1)
+		key = fmt.Sprintf(OrderBooksZsetSell, coinPair)
+		break
 	default:
 		return nil, errors.New("unknown direction")
 	}
 
-	if scores.Err() != nil {
-		return nil, scores.Err()
+	val := c.client.Get(key)
+	if errors.Is(val.Err(), redis.Nil) {
+		return nil, nil
+	}
+	if val.Err() != nil {
+		logger.Errorf("get books error: %v", val.Err())
+		return nil, val.Err()
 	}
 
-	for _, s := range scores.Val() {
-		tmpOrder := &order.OrderEntity{}
-		err := json.Unmarshal([]byte(fmt.Sprintf("%v", s.Member)), tmpOrder)
-		if err != nil {
-			logger.Errorf("json unmarshal error: %v", err)
-			continue
-		}
-
-		orders = append(orders, tmpOrder)
+	err := json.Unmarshal([]byte(val.Val()), &orders)
+	if err != nil {
+		logger.Errorf("json unmarshal error: %v", err)
+		return nil, err
 	}
 	return orders, nil
+}
+
+func (c *BooksCache) SetBooks(coinPair string, direction order.Direction, data []*order.OrderEntity) error {
+	if len(data) == 0 || data == nil {
+		return nil
+	}
+
+	var key string
+
+	switch direction {
+	case order.Buy:
+		key = fmt.Sprintf(OrderBooksZsetBuy, coinPair)
+		break
+	case order.Sell:
+		key = fmt.Sprintf(OrderBooksZsetSell, coinPair)
+		break
+	default:
+		return errors.New("unknown direction")
+	}
+
+	str, err := json.Marshal(data)
+	if err != nil {
+		logger.Errorf("json marshal error: %v", err)
+		return err
+	}
+	err = c.client.Set(key, str, 0).Err()
+	if err != nil {
+		logger.Errorf("set books error: %v", err)
+		return err
+	}
+	return nil
 }

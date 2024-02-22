@@ -32,7 +32,7 @@ redis:
   idleTimeout: "120s"
 rpcServer:
   network: "tcp"
-  addr: ":8808"
+  addr: ":9999"
   timeout: "1s"
   idleTimeout: "60s"
   maxLifeTime: "60s"

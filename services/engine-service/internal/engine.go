@@ -19,22 +19,19 @@ const (
 )
 
 type Engine struct {
+	CoinPair string
+
 	//mq   *mq.KafkaClient
 	mq *mq.KafkaClient
 
 	buy  *BuyBook
 	sell *SellBook
 
-	CoinPair string
-
-	// Close 关闭通道
-	Close <-chan struct{}
+	cache *redis.BooksCache
 }
 
 func NewEngine(cache *redis.BooksCache, coinPair string, mq *mq.KafkaClient) *Engine {
 	// 初始化从Cache中加载订单簿
-	// todo 需要保证订单的有效
-	// 最好以 db 的数据为主
 	buyBooks, err := cache.GetBooks(coinPair, order2.Buy)
 	if err != nil {
 		logger.Errorf("get buy books error: %v", err)
@@ -46,7 +43,7 @@ func NewEngine(cache *redis.BooksCache, coinPair string, mq *mq.KafkaClient) *En
 		panic(err)
 	}
 
-	buy := &BuyBook{Common: Common{data: buyBooks}}
+	buy := &BuyBook{Common{data: buyBooks}}
 	sell := &SellBook{Common{data: sellBooks}}
 	heap.Init(buy)
 	heap.Init(sell)
@@ -56,23 +53,24 @@ func NewEngine(cache *redis.BooksCache, coinPair string, mq *mq.KafkaClient) *En
 		sell:     sell,
 		CoinPair: coinPair,
 		mq:       mq,
+		cache:    cache,
 	}
 }
 
-func (e *Engine) GetOrderBookList() {
-	logger.Infof("coinPair: %s BEGIN---------", e.CoinPair)
-	for i, datum := range e.buy.data {
-		logger.Infof("buy[%d]: %v", i, datum)
-	}
+func (e *Engine) GetOrderBookList() string {
+	res := make(map[string][]*order2.OrderEntity, 2)
 
-	for i, datum := range e.sell.data {
-		logger.Infof("sell[%d]: %v", i, datum)
+	res["buy"] = e.buy.data
+	res["sell"] = e.sell.data
+
+	marshal, err := json.Marshal(res)
+	if err != nil {
+		return ""
 	}
-	logger.Infof("coinPair : %s END---------", e.CoinPair)
+	return string(marshal)
 }
 
 func (e *Engine) Start(coinPair string) {
-	// todo 需要处理 engine 的 close 信号
 	topic := fmt.Sprintf(QueueEngineTopic, coinPair)
 	logger.Infof("start engine for %s", topic)
 	//e.mq.GroupMsg(topic, e.processMsg)
@@ -81,20 +79,13 @@ func (e *Engine) Start(coinPair string) {
 }
 
 // ProcessOrder 撮合
-func (e *Engine) processOrder(takerOrder *order2.OrderEntity, makerBooks heap.Interface, anotherBooks heap.Interface) (*MatchResult, error) {
+func (e *Engine) processOrder(takerOrder *order2.OrderEntity, makerBooks WrapHeap, anotherBooks WrapHeap) (*MatchResult, error) {
 	logger.Infof("process order: %v", takerOrder)
 	takerUnfilledQuantity := takerOrder.Quantity
 	matchRes := newMatchResult()
 
 	for makerBooks.Len() > 0 {
-		pop := heap.Pop(makerBooks)
-		if pop == nil {
-			// 对手盘不存在
-			logger.Info("takerBooks is nil")
-			break
-		}
-
-		makerOrder, ok := pop.(*order2.OrderEntity)
+		makerOrder, ok := makerBooks.Peek().(*order2.OrderEntity)
 		if !ok || makerOrder == nil {
 			logger.Error("pop is not a TrustOrder")
 			break
@@ -124,6 +115,10 @@ func (e *Engine) processOrder(takerOrder *order2.OrderEntity, makerBooks heap.In
 		if makerUnfilledQuantity.Sign() > 0 {
 			makerOrder.UnfilledQuantity = makerUnfilledQuantity
 			heap.Push(makerBooks, makerOrder)
+		} else {
+			makerOrder.UnfilledQuantity = makerUnfilledQuantity
+			makerOrder.Status = order2.FullyFilled
+			makerBooks.Pop()
 		}
 
 		if takerUnfilledQuantity.Sign() == 0 {
@@ -143,6 +138,7 @@ func (e *Engine) processOrder(takerOrder *order2.OrderEntity, makerBooks heap.In
 			status = order2.PartialFilled
 		}
 		takerOrder.Status = status
+		logger.Infof("Taker订单未完全成交: %v", takerOrder)
 		heap.Push(anotherBooks, takerOrder)
 	}
 	return matchRes, nil
@@ -183,6 +179,13 @@ func (e *Engine) processMsg(msg *sarama.ConsumerMessage) error {
 	mr.mq = e.mq
 	//mr.sendMatchResToQueue()
 	return nil
+}
+
+// Shutdown 关闭
+func (e *Engine) Shutdown() {
+	e.mq.Close()
+	_ = e.cache.SetBooks(e.CoinPair, order2.Buy, e.buy.data)
+	_ = e.cache.SetBooks(e.CoinPair, order2.Sell, e.sell.data)
 }
 
 func minFloat(x, y *big.Float) *big.Float {

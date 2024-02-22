@@ -1,11 +1,26 @@
 package internal
 
-import "github.com/lqy007700/exchange/common/order"
+import (
+	"container/heap"
+	"github.com/lqy007700/exchange/common/order"
+)
+
+type WrapHeap interface {
+	heap.Interface
+	Peek() any
+}
 
 // Common
 // SellBook BuyBook 组合 Common 避免重复代码
 type Common struct {
 	data []*order.OrderEntity
+}
+
+func (s *Common) Peek() any {
+	if s.Len() > 0 {
+		return s.data[0]
+	}
+	return nil
 }
 
 func (s *Common) Len() int {

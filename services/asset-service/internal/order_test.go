@@ -35,16 +35,15 @@ func TestOrderService_CreateOrder(t *testing.T) {
 		CoinFrom:         "btc",
 		CoinTo:           "usdt",
 		Direction:        order.Buy,
-		Price:            big.NewFloat(10000),
-		Quantity:         big.NewFloat(10),
-		UnfilledQuantity: big.NewFloat(10),
+		Price:            big.NewFloat(10),
+		Quantity:         big.NewFloat(3.5),
+		UnfilledQuantity: big.NewFloat(3.5),
 		Status:           order.Pending,
 		CreateAt:         time.Now(),
 	}
-	err = orderSvc.CreateOrder(o)
-	if err != nil {
-		logger.Errorf("create order error: %v", err)
-		return
+	for i := 1; i <= 1; i++ {
+		o.Price = big.NewFloat(float64(11))
+		err = orderSvc.CreateOrder(o)
 	}
 	return
 }

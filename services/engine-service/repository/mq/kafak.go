@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	"go-micro.dev/v4/logger"
-	"log"
-	"time"
 )
 
 type KafkaClient struct {
@@ -16,6 +14,7 @@ type KafkaClient struct {
 	group    sarama.ConsumerGroup
 	topics   []string
 	handler  MsgHandler
+	close    chan struct{}
 }
 
 type MsgHandler func(msg *sarama.ConsumerMessage) error
@@ -47,6 +46,7 @@ func NewKafkaClient() (*KafkaClient, error) {
 		producer: producer,
 		consumer: consumer,
 		group:    group,
+		close:    make(chan struct{}, 1),
 	}, nil
 }
 
@@ -61,35 +61,19 @@ func (kc *KafkaClient) Produce(topic string, message []byte) error {
 }
 
 func (kc *KafkaClient) Consume(topic string, handler MsgHandler) {
-	isPanic := true
+	partitionConsumer, err := kc.consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
+	if err != nil {
+		// 初次启动时
+		logger.Errorf("Error occurred while consuming message,again in 5 seconds: %+v", err)
+		panic(fmt.Sprintf("Error occurred while consuming message: %+v", err))
+	}
+
 	for {
-		partitionConsumer, err := kc.consumer.ConsumePartition(topic, 0, sarama.OffsetOldest)
-
-		if err != nil {
-			// 初次启动时
-			if isPanic {
-				panic(fmt.Sprintf("Error occurred while consuming message: %+v", err))
-			}
-
-			logger.Errorf("Error occurred while consuming message,again in 5 seconds: %+v", err)
-			// Sleep for a while before trying to reconnect
-			time.Sleep(time.Second * 5)
-			continue
-		}
-		isPanic = false
-
-		for msg := range partitionConsumer.Messages() {
-			err = handler(msg)
-			if err != nil {
-				logger.Errorf("Error occurred while handling message: %+v", err)
-				continue
-			}
+		select {
+		case msg := <-partitionConsumer.Messages():
+			handler(msg)
 			logger.Infof("Consumed message offset %d\n", msg.Offset)
-			partitionConsumer.HighWaterMarkOffset()
 		}
-
-		// If we reach here, it means the partitionConsumer has been closed and we need to reinitialize it.
-		log.Println("Kafka connection closed, trying to reconnect...")
 	}
 }
 
@@ -106,6 +90,7 @@ func (kc *KafkaClient) Group(topic string) {
 }
 
 func (kc *KafkaClient) Close() {
+	kc.close <- struct{}{}
 	if err := kc.producer.Close(); err != nil {
 		logger.Errorf("close kafka producer error: %v", err)
 	}

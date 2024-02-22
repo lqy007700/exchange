@@ -39,7 +39,7 @@ func (o *OrderService) CreateOrder(order *order2.OrderEntity) error {
 		return err
 	}
 
-	err = o.mq.Produce("queue-engine-topic-btc_usdt", marshal)
+	err = o.mq.Produce("queue-engine-topic-btc_usdt1", marshal)
 	if err != nil {
 		logger.Errorf("publish order error: %v", err)
 		return err
