@@ -2,15 +2,15 @@ package internal
 
 import (
 	"container/heap"
+	"context"
 	"encoding/json"
 	"engine-service/repository/mq"
 	"engine-service/repository/redis"
 	"fmt"
-	"github.com/Shopify/sarama"
 	order2 "github.com/lqy007700/exchange/common/order"
-	"github.com/pkg/errors"
 	"go-micro.dev/v4/logger"
 	"math/big"
+	"time"
 )
 
 const (
@@ -22,15 +22,17 @@ type Engine struct {
 	CoinPair string
 
 	//mq   *mq.KafkaClient
-	mq *mq.KafkaClient
+	mq *mq.Consumer
 
 	buy  *BuyBook
 	sell *SellBook
 
 	cache *redis.BooksCache
+
+	cancel context.CancelFunc
 }
 
-func NewEngine(cache *redis.BooksCache, coinPair string, mq *mq.KafkaClient) *Engine {
+func NewEngine(cache *redis.BooksCache, coinPair string) *Engine {
 	// 初始化从Cache中加载订单簿
 	buyBooks, err := cache.GetBooks(coinPair, order2.Buy)
 	if err != nil {
@@ -52,7 +54,6 @@ func NewEngine(cache *redis.BooksCache, coinPair string, mq *mq.KafkaClient) *En
 		buy:      buy,
 		sell:     sell,
 		CoinPair: coinPair,
-		mq:       mq,
 		cache:    cache,
 	}
 }
@@ -72,10 +73,23 @@ func (e *Engine) GetOrderBookList() string {
 
 func (e *Engine) Start(coinPair string) {
 	topic := fmt.Sprintf(QueueEngineTopic, coinPair)
-	logger.Infof("start engine for %s", topic)
-	//e.mq.GroupMsg(topic, e.processMsg)
-	e.mq.Consume(topic, e.processMsg)
-	defer e.mq.Close()
+	consumer, err := mq.NewConsumer(coinPair)
+	if err != nil {
+		logger.Errorf("new consumer error: %v", err)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancel = cancel
+	ch := &mq.ConsumerHandler{
+		HandleMessage: e.processMsg,
+		Ctx:           ctx,
+	}
+
+	err = consumer.Consume(ctx, []string{topic}, ch)
+	if err != nil {
+		return
+	}
 }
 
 // ProcessOrder 撮合
@@ -145,25 +159,25 @@ func (e *Engine) processOrder(takerOrder *order2.OrderEntity, makerBooks WrapHea
 }
 
 // processMsg 接收消息队列消息
-func (e *Engine) processMsg(msg *sarama.ConsumerMessage) error {
+func (e *Engine) processMsg(msg []byte) {
 	ev := &Event{
 		Data: &order2.OrderEntity{},
 	}
-	err := json.Unmarshal(msg.Value, ev)
+	err := json.Unmarshal(msg, ev)
 	if err != nil {
 		logger.Errorf("unmarshal order error: %v", err)
-		return err
+		return
 	}
 
 	order, ok := ev.Data.(*order2.OrderEntity)
 	if !ok {
 		logger.Errorf("ev.Data.(*order2.OrderEntity) error: %v", err)
-		return errors.New("ev.Data.(*order2.OrderEntity) error")
+		return
 	}
 
 	if order == nil {
 		logger.Error("order is nil")
-		return errors.New("order is nil")
+		return
 	}
 
 	var mr *MatchResult
@@ -176,14 +190,20 @@ func (e *Engine) processMsg(msg *sarama.ConsumerMessage) error {
 		logger.Errorf("unknown event type: %v", order.Direction)
 	}
 
-	mr.mq = e.mq
+	fmt.Println(mr)
+	//mr.mq = e.mq
 	//mr.sendMatchResToQueue()
-	return nil
+	return
 }
 
 // Shutdown 关闭
 func (e *Engine) Shutdown() {
-	e.mq.Close()
+	if e.cancel != nil {
+		logger.Info("engine is shutting down")
+		e.cancel()
+	}
+
+	time.Sleep(1 * time.Second)
 	_ = e.cache.SetBooks(e.CoinPair, order2.Buy, e.buy.data)
 	_ = e.cache.SetBooks(e.CoinPair, order2.Sell, e.sell.data)
 }

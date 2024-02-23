@@ -1,18 +1,13 @@
 package internal
 
 import (
-	"encoding/json"
-	"engine-service/repository/mq"
 	"github.com/lqy007700/exchange/common/order"
-	"go-micro.dev/v4/logger"
 	"math/big"
-	"sync"
 )
 
 // MatchResult 成交结果
 type MatchResult struct {
 	matchDetails []*MatchResultDetail
-	mq           *mq.KafkaClient
 }
 type MatchResultDetail struct {
 	Price      *big.Float
@@ -38,28 +33,28 @@ func (m *MatchResult) add(price *big.Float, quantity *big.Float, takerOrder *ord
 
 // 发送撮合结果给 kafka
 func (m *MatchResult) sendMatchResToQueue() {
-	if m == nil {
-		logger.Info("match result is nil")
-		return
-	}
-
-	var wg sync.WaitGroup
-
-	for _, detail := range m.matchDetails {
-		go func(info *MatchResultDetail) {
-			wg.Add(1)
-			defer wg.Done()
-			detailJson, err := json.Marshal(info)
-			if err != nil {
-				logger.Errorf("marshal match result detail error: %v", err)
-				return
-			}
-			err = m.mq.Produce("match_result", detailJson)
-			if err != nil {
-				logger.Errorf("send match result error: %v", err)
-				return
-			}
-		}(detail)
-	}
-	wg.Wait()
+	//if m == nil {
+	//	logger.Info("match result is nil")
+	//	return
+	//}
+	//
+	//var wg sync.WaitGroup
+	//
+	//for _, detail := range m.matchDetails {
+	//	go func(info *MatchResultDetail) {
+	//		wg.Add(1)
+	//		defer wg.Done()
+	//		//detailJson, err := json.Marshal(info)
+	//		if err != nil {
+	//			logger.Errorf("marshal match result detail error: %v", err)
+	//			return
+	//		}
+	//		//err = m.mq.Produce("match_result", detailJson)
+	//		if err != nil {
+	//			logger.Errorf("send match result error: %v", err)
+	//			return
+	//		}
+	//	}(detail)
+	//}
+	//wg.Wait()
 }

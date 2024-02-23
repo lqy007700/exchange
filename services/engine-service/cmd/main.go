@@ -3,7 +3,6 @@ package main
 import (
 	"engine-service/config"
 	"engine-service/internal"
-	"engine-service/repository/mq"
 	"engine-service/repository/redis"
 	"go-micro.dev/v4/web"
 	"net/http"
@@ -41,15 +40,8 @@ func main() {
 
 	service.Init()
 
-	client, err := mq.NewKafkaClient()
-	if err != nil {
-		logger.Fatal(err)
-		return
-	}
-
 	cache := redis.NewBooksCache()
-
-	initEngine(client, cache)
+	initEngine(cache)
 
 	webSvc := web.NewService(web.Name("my.service"), web.Address("127.0.0.1:9901"))
 	webSvc.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -76,14 +68,13 @@ func main() {
 }
 
 // initEngine 启动撮合 临时
-func initEngine(client *mq.KafkaClient, cache *redis.BooksCache) {
+func initEngine(cache *redis.BooksCache) {
 	logger.Info("init engine")
 	// todo 交易对处理
-	coinParis := []string{"btc_usdt1"}
+	coinParis := []string{"btc_usdt", "btc_eth", "btc_bnb"}
 	for _, coinPair := range coinParis {
-		engine := internal.NewEngine(cache, coinPair, client)
+		engine := internal.NewEngine(cache, coinPair)
 		go engine.Start(coinPair)
-		//go printOrderBook(engine)
 		engines[coinPair] = engine
 		logger.Infof("init engine for %s success", coinPair)
 	}

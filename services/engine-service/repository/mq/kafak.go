@@ -6,131 +6,112 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	"go-micro.dev/v4/logger"
+	"time"
 )
 
-type KafkaClient struct {
-	producer sarama.SyncProducer
-	consumer sarama.Consumer
-	group    sarama.ConsumerGroup
-	topics   []string
-	handler  MsgHandler
-	close    chan struct{}
+// Producer 包含Kafka生产者的配置和实例
+type Producer struct {
+	producer sarama.AsyncProducer
 }
 
-type MsgHandler func(msg *sarama.ConsumerMessage) error
-
-func NewKafkaClient() (*KafkaClient, error) {
+// NewProducer 创建一个新的Kafka生产者实例
+func NewProducer(brokers []string) (*Producer, error) {
 	conf := sarama.NewConfig()
+	conf.Producer.RequiredAcks = sarama.WaitForLocal
+	conf.Producer.Compression = sarama.CompressionSnappy
+	conf.Producer.Flush.Frequency = 500 * time.Millisecond
+	conf.Producer.Flush.Messages = 100
 
-	conf.Consumer.Return.Errors = true
-	conf.Producer.Return.Errors = true
-	conf.Producer.Return.Successes = true
-	conf.Consumer.Offsets.AutoCommit.Enable = true
-
-	producer, err := sarama.NewSyncProducer(config.Conf.Kafka.Brokers, conf)
+	producer, err := sarama.NewAsyncProducer(config.Conf.Kafka.Brokers, conf)
 	if err != nil {
 		return nil, err
 	}
 
-	group, err := sarama.NewConsumerGroup(config.Conf.Kafka.Brokers, "engine", conf)
-	if err != nil {
-		return nil, err
-	}
-
-	consumer, err := sarama.NewConsumer(config.Conf.Kafka.Brokers, conf)
-	if err != nil {
-		return nil, err
-	}
-
-	return &KafkaClient{
-		producer: producer,
-		consumer: consumer,
-		group:    group,
-		close:    make(chan struct{}, 1),
-	}, nil
+	kp := &Producer{producer: producer}
+	go func() {
+		for {
+			select {
+			case success := <-kp.producer.Successes():
+				fmt.Printf("Message sent successfully: %v\n", success)
+			case err := <-kp.producer.Errors():
+				fmt.Println("Failed to send message:", err)
+			}
+		}
+	}()
+	return kp, nil
 }
 
-func (kc *KafkaClient) Produce(topic string, message []byte) error {
-	msg := &sarama.ProducerMessage{
-		Topic: topic,
-		Value: sarama.StringEncoder(message),
-	}
-
-	_, _, err := kc.producer.SendMessage(msg)
-	return err
+// ProduceMessage 异步发送消息
+func (p *Producer) ProduceMessage(topic string, message string) {
+	msg := &sarama.ProducerMessage{Topic: topic, Value: sarama.StringEncoder(message)}
+	p.producer.Input() <- msg
 }
 
-func (kc *KafkaClient) Consume(topic string, handler MsgHandler) {
-	partitionConsumer, err := kc.consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
+func (p *Producer) Close() error {
+	if err := p.producer.Close(); err != nil {
+		logger.Errorf("Failed to shut down producer cleanly: %v", err)
+		return err
+	}
+	logger.Infof("Producer shutdown cleanly")
+	return nil
+}
+
+// Consumer 包含Kafka消费者组的配置和实例
+type Consumer struct {
+	group sarama.ConsumerGroup
+}
+
+// NewConsumer 创建一个新的Kafka消费者组实例
+func NewConsumer(groupID string) (*Consumer, error) {
+	conf := sarama.NewConfig()
+	consumer, err := sarama.NewConsumerGroup(config.Conf.Kafka.Brokers, groupID, conf)
 	if err != nil {
-		// 初次启动时
-		logger.Errorf("Error occurred while consuming message,again in 5 seconds: %+v", err)
-		panic(fmt.Sprintf("Error occurred while consuming message: %+v", err))
+		return nil, err
 	}
 
+	kc := &Consumer{group: consumer}
+	return kc, nil
+}
+
+func (c *Consumer) Consume(ctx context.Context, topics []string, handler *ConsumerHandler) error {
+	go func() {
+		<-ctx.Done()
+		if err := c.group.Close(); err != nil {
+			logger.Errorf("Failed to shut down consumer group cleanly: %v", err)
+		} else {
+			logger.Info("Consumer group shutdown cleanly")
+		}
+	}()
+
+	for {
+		if err := c.group.Consume(ctx, topics, handler); err != nil {
+			logger.Infof("Error from consumer: %v", err)
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+	}
+}
+
+type ConsumerHandler struct {
+	HandleMessage func(message []byte)
+	Ctx           context.Context
+}
+
+func (h *ConsumerHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
+func (h *ConsumerHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
+func (h *ConsumerHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for {
 		select {
-		case msg := <-partitionConsumer.Messages():
-			handler(msg)
-			logger.Infof("Consumed message offset %d\n", msg.Offset)
+		case msg, ok := <-claim.Messages():
+			if ok {
+				h.HandleMessage(msg.Value)
+				sess.MarkMessage(msg, "")
+			}
+		case <-h.Ctx.Done():
+			logger.Info("ConsumerHandler ConsumeClaim Done")
+			return h.Ctx.Err()
 		}
 	}
-}
-
-func (kc *KafkaClient) Group(topic string) {
-	c := &ConsumerGroupHandler{
-		kc: kc,
-	}
-	for {
-		err := kc.group.Consume(context.Background(), []string{topic}, c)
-		if err != nil {
-			logger.Fatalf("Error occurred while consuming message: %+v", err)
-		}
-	}
-}
-
-func (kc *KafkaClient) Close() {
-	kc.close <- struct{}{}
-	if err := kc.producer.Close(); err != nil {
-		logger.Errorf("close kafka producer error: %v", err)
-	}
-
-	if err := kc.consumer.Close(); err != nil {
-		logger.Errorf("close kafka consumer error: %v", err)
-	}
-}
-
-type ConsumerGroupHandler struct {
-	kc *KafkaClient
-}
-
-func (c *ConsumerGroupHandler) Setup(session sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-func (c *ConsumerGroupHandler) Cleanup(session sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-func (c *ConsumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	for msg := range claim.Messages() {
-		logger.Infof("Message claimed: value = %s, timestamp = %v, topic = %s", string(msg.Value), msg.Timestamp, msg.Topic)
-		err := c.kc.handler(msg)
-		if err != nil {
-			logger.Errorf("Error occurred while handling message: %+v", err)
-			return err
-		}
-		logger.Infof("Message topic:%q partition:%d offset:%d\n", msg.Topic, msg.Partition, msg.Offset)
-
-		// 确认消息已被处理，提交偏移量
-		session.MarkMessage(msg, "")
-	}
-
-	logger.Infof("consume message success")
-	return nil
-}
-
-func (kc *KafkaClient) GroupMsg(topic string, handler MsgHandler) {
-	kc.handler = handler
-	kc.Group(topic)
 }
