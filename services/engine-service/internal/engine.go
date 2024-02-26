@@ -4,24 +4,20 @@ import (
 	"container/heap"
 	"context"
 	"encoding/json"
-	"engine-service/repository/mq"
+	"engine-service/config"
 	"engine-service/repository/redis"
 	"fmt"
+	"github.com/lqy007700/exchange/common/engine"
+	"github.com/lqy007700/exchange/common/mq"
 	order2 "github.com/lqy007700/exchange/common/order"
 	"go-micro.dev/v4/logger"
 	"math/big"
 	"time"
 )
 
-const (
-	// QueueEngineTopic 撮合引擎消息队列
-	QueueEngineTopic = "queue-engine-topic-%s" // coin_pair
-)
-
 type Engine struct {
 	CoinPair string
 
-	//mq   *mq.KafkaClient
 	mq *mq.Consumer
 
 	buy  *BuyBook
@@ -34,6 +30,7 @@ type Engine struct {
 
 func NewEngine(cache *redis.BooksCache, coinPair string) *Engine {
 	// 初始化从Cache中加载订单簿
+	// todo 需要检测 cache 中的订单是否正确,和 db 中的订单是否一致
 	buyBooks, err := cache.GetBooks(coinPair, order2.Buy)
 	if err != nil {
 		logger.Errorf("get buy books error: %v", err)
@@ -72,10 +69,10 @@ func (e *Engine) GetOrderBookList() string {
 }
 
 func (e *Engine) Start(coinPair string) {
-	topic := fmt.Sprintf(QueueEngineTopic, coinPair)
-	consumer, err := mq.NewConsumer(coinPair)
+	topic := fmt.Sprintf(engine.QueueEngineTopic, coinPair)
+
+	consumer, err := mq.NewConsumer(config.Conf.Kafka.Brokers, coinPair)
 	if err != nil {
-		logger.Errorf("new consumer error: %v", err)
 		return
 	}
 
@@ -190,7 +187,12 @@ func (e *Engine) processMsg(msg []byte) {
 		logger.Errorf("unknown event type: %v", order.Direction)
 	}
 
+	// TODO 撮合结果
+	// 1/ 发送消息等资产服务结算
+	// 2/ 发送交易结果给客户端
+	// 3/ 发送交易结果给行情服务
 	fmt.Println(mr)
+
 	//mr.mq = e.mq
 	//mr.sendMatchResToQueue()
 	return

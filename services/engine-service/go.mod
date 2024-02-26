@@ -9,7 +9,7 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/jinzhu/gorm v1.9.16
-	github.com/lqy007700/exchange/common v0.0.0-20240204083941-28bfc2ce53b7
+	github.com/lqy007700/exchange/common v0.0.0-20240226021822-d4e6b09c610c
 	github.com/pkg/errors v0.9.1
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7.0.20210127161313-bd30bebeac4f
 	go-micro.dev/v4 v4.9.0

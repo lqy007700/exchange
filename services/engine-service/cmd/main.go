@@ -80,15 +80,6 @@ func initEngine(cache *redis.BooksCache) {
 	}
 }
 
-// 输出当前的交易列表
-func printOrderBook(engine *internal.Engine) {
-	ticker := time.NewTicker(20 * time.Second)
-	for {
-		<-ticker.C
-		engine.GetOrderBookList()
-	}
-}
-
 func waitForShutdown() {
 	sign := make(chan os.Signal, 1)
 	signal.Notify(sign, ShutdownSignals...)

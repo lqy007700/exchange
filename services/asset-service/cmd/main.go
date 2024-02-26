@@ -4,7 +4,6 @@ import (
 	"asset-service/config"
 	"asset-service/internal"
 	asset_service "asset-service/proto"
-	"asset-service/repository/mq"
 	"asset-service/repository/mysql"
 	"asset-service/repository/redis"
 	"asset-service/rpc"
@@ -38,11 +37,9 @@ func main() {
 	db := mysql.New()
 	cache := redis.NewAssetCache()
 
-	mqSvc, _ := mq.NewKafkaClient()
-
 	as := &rpc.AssetService{
 		Asset: internal.NewAssetService(db, cache),
-		Order: internal.NewOrderService(db, cache, mqSvc),
+		Order: internal.NewOrderService(db, cache),
 	}
 
 	err = asset_service.RegisterAssetServiceHandler(service.Server(), as)

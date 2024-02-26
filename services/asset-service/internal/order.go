@@ -1,11 +1,14 @@
 package internal
 
 import (
+	"asset-service/config"
 	"asset-service/internal/sequencer"
 	"asset-service/pkg/util"
-	"asset-service/repository/mq"
 	"asset-service/repository/mysql"
 	"asset-service/repository/redis"
+	"fmt"
+	"github.com/lqy007700/exchange/common/engine"
+	"github.com/lqy007700/exchange/common/mq"
 	order2 "github.com/lqy007700/exchange/common/order"
 
 	"encoding/json"
@@ -16,11 +19,16 @@ type OrderService struct {
 	db    *mysql.AssetDB
 	redis *redis.AssetCache
 	seq   *sequencer.Seq
-	mq    *mq.KafkaClient
+	mq    *mq.Producer
 }
 
-func NewOrderService(db *mysql.AssetDB, redis *redis.AssetCache, mq *mq.KafkaClient) *OrderService {
-	return &OrderService{db: db, redis: redis, mq: mq}
+func NewOrderService(db *mysql.AssetDB, redis *redis.AssetCache) *OrderService {
+	producer, err := mq.NewProducer(config.Conf.Kafka.Brokers)
+	if err != nil {
+		logger.Fatalf("init kafka producer error: %v", err)
+		return nil
+	}
+	return &OrderService{db: db, redis: redis, mq: producer}
 }
 
 // CreateOrder 创建订单
@@ -39,10 +47,7 @@ func (o *OrderService) CreateOrder(order *order2.OrderEntity) error {
 		return err
 	}
 
-	err = o.mq.Produce("queue-engine-topic-btc_usdt1", marshal)
-	if err != nil {
-		logger.Errorf("publish order error: %v", err)
-		return err
-	}
+	topic := fmt.Sprintf(engine.QueueEngineTopic, fmt.Sprintf("%s_%s", order.CoinFrom, order.CoinTo))
+	o.mq.ProduceMessage(topic, string(marshal))
 	return nil
 }

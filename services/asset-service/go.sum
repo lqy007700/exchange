@@ -197,6 +197,10 @@ github.com/lqy007700/exchange/common v0.0.0-20240131092853-800b56588872 h1:t38bi
 github.com/lqy007700/exchange/common v0.0.0-20240131092853-800b56588872/go.mod h1:gGD354jwwWyhXoNAcPjgxNDFDKWEAcEzroQQ2Dqc4uI=
 github.com/lqy007700/exchange/common v0.0.0-20240205085804-df30a971cd6f h1:MBBYQt81w6KzgGUhW/xlXtLLfLIAx8hRHqJRwvCft8g=
 github.com/lqy007700/exchange/common v0.0.0-20240205085804-df30a971cd6f/go.mod h1:gGD354jwwWyhXoNAcPjgxNDFDKWEAcEzroQQ2Dqc4uI=
+github.com/lqy007700/exchange/common v0.0.0-20240226021117-328ec0db535a h1:GnMwrGOzbSIWOTOgTt+QKW3O0TJ1JWipzQdLJcxsFb8=
+github.com/lqy007700/exchange/common v0.0.0-20240226021117-328ec0db535a/go.mod h1:mYkkaF3Vzgwyc+Nw3j04LpQwPNRCpeRJdfNnZHsmNa0=
+github.com/lqy007700/exchange/common v0.0.0-20240226021822-d4e6b09c610c h1:zIPWSO7irOP3AYuWG6tmHtf0FF82fJH1YsPqBTtgZ5U=
+github.com/lqy007700/exchange/common v0.0.0-20240226021822-d4e6b09c610c/go.mod h1:mYkkaF3Vzgwyc+Nw3j04LpQwPNRCpeRJdfNnZHsmNa0=
 github.com/matryer/is v1.2.0 h1:92UTHpy8CDwaJ08GqLDzhhuixiBUUD1p3AU6PHddz4A=
 github.com/matryer/is v1.2.0/go.mod h1:2fLPjFQM9rhQ15aVEtbuwhJinnOqrmgXPNdZsdwlWXA=
 github.com/mattn/go-sqlite3 v1.14.0 h1:mLyGNKR8+Vv9CAU7PphKa2hkEqxxhn8i32J6FPj1/QA=
